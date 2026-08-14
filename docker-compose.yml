@@ -1,0 +1,15 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: devdash
+      POSTGRES_PASSWORD: devdash
+      POSTGRES_DB: devdash
+    ports:
+      - "5432:5432"
+    volumes:
+      - devdash_pg:/var/lib/postgresql/data
+
+volumes:
+  devdash_pg:

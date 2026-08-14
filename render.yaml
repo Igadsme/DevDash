@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: devdash
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npx prisma migrate deploy && npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: devdash-db
+          property: connectionString
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_URL
+        sync: false
+      - key: AUTH_TRUST_HOST
+        value: "true"
+      - key: GITHUB_ID
+        sync: false
+      - key: GITHUB_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: CRON_SECRET
+        generateValue: true
+      - key: USE_MOCK_DATA
+        value: "false"
+
+  - type: cron
+    name: devdash-sync
+    runtime: node
+    schedule: "*/30 * * * *"
+    buildCommand: npm install && npx prisma generate
+    startCommand: node -e "fetch(process.env.AUTH_URL + '/api/cron/sync',{headers:{authorization:'Bearer '+process.env.CRON_SECRET}}).then(r=>r.text()).then(console.log)"
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: AUTH_URL
+        sync: false
+      - key: CRON_SECRET
+        sync: false
+
+databases:
+  - name: devdash-db
+    plan: starter
+    postgresMajorVersion: 16
