@@ -139,11 +139,6 @@ npm run build
 npm start
 ```
 
-## Mock data
-
-Original Figma fixtures live in `lib/mock/` and are **not** used by production pages. Empty states appear until a real integration syncs.
-
-## Product principle
 
 DATA → CONTEXT → INSIGHT → ACTION
 
