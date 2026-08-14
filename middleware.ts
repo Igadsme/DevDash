@@ -7,10 +7,12 @@ export async function middleware(req: NextRequest) {
   const isApp = pathname.startsWith("/app") || pathname.startsWith("/onboarding");
   if (!isApp) return NextResponse.next();
 
-  const token = await getToken({
-    req,
-    secret: process.env.AUTH_SECRET,
-  });
+  const secret = process.env.AUTH_SECRET;
+  const secureCookie = req.nextUrl.protocol === "https:";
+  const token =
+    (await getToken({ req, secret, secureCookie })) ||
+    (await getToken({ req, secret, cookieName: "authjs.session-token" })) ||
+    (await getToken({ req, secret, cookieName: "__Secure-authjs.session-token", secureCookie: true }));
 
   if (!token) {
     const url = new URL("/signin", req.nextUrl.origin);
