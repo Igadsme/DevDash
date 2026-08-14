@@ -1,0 +1,10 @@
+{
+  "description": "Connect engineering tools to visualize work priorities, focus patterns, and health metrics with AI insights for developer productivity and clarity.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
