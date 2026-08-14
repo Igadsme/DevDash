@@ -82,6 +82,7 @@ export default function Overview({ onNavigate }: Props) {
     themes: Array<{ name: string; pct: number; color: string }>;
     health: Array<{ label: string; value: string; color: string }>;
     focus: { total: string; longest: string; meetings: string; interruptions: string; window: string };
+    recentRepos: Array<{ id: string; name: string; fullName: string; language: string | null; url: string | null; lastActivityLabel: string }>;
   }>("/api/dashboard");
 
   if (loading) return <OverviewSkeleton />;
@@ -265,6 +266,47 @@ export default function Overview({ onNavigate }: Props) {
 
         {/* Right column */}
         <div className="space-y-6">
+          <div className="rounded-xl overflow-hidden" style={{ background: "#111116", border: "1px solid #1e1e26" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #1e1e26" }}>
+              <div className="text-sm font-semibold" style={{ color: "#f0f0f2" }}>Recent repositories</div>
+              <button
+                onClick={() => onNavigate("integrations")}
+                className="text-xs transition-all"
+                style={{ color: "#6b6b80" }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#4a8fff")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#6b6b80")}
+              >
+                Manage →
+              </button>
+            </div>
+            <div className="divide-y" style={{ borderColor: "#1e1e26" }}>
+              {(data.recentRepos || []).length === 0 && (
+                <div className="px-5 py-6 text-xs" style={{ color: "#6b6b80" }}>
+                  {data.githubConnected
+                    ? "GitHub is connected, but no repositories have synced yet. Open Integrations and hit sync."
+                    : "Connect GitHub to see the repositories you have been working in."}
+                </div>
+              )}
+              {(data.recentRepos || []).map((repo) => (
+                <button
+                  key={repo.id}
+                  className="w-full flex items-center justify-between px-5 py-3 text-left transition-all"
+                  style={{ background: "transparent" }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "#121215")}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "transparent")}
+                  onClick={() => repo.url && window.open(repo.url, "_blank", "noopener,noreferrer")}
+                >
+                  <div className="min-w-0">
+                    <div className="text-sm font-mono truncate" style={{ color: "#f0f0f2" }}>{repo.fullName}</div>
+                    <div className="text-xs" style={{ color: "#6b6b80" }}>
+                      {repo.language || "Repository"} · {repo.lastActivityLabel}
+                    </div>
+                  </div>
+                  <ChevronRight size={12} style={{ color: "#3e3e50", flexShrink: 0 }} />
+                </button>
+              ))}
+            </div>
+          </div>
           {/* Focus preview */}
           <div className="rounded-xl overflow-hidden" style={{ background: "#111116", border: "1px solid #1e1e26" }}>
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid #1e1e26" }}>

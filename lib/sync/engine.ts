@@ -240,6 +240,8 @@ export async function syncIntegration(userId: string, provider: string) {
 
     const stored = await prisma.repository.findMany({
       where: { userId, provider, selected: true },
+      orderBy: { lastActivityAt: "desc" },
+      take: 25,
     });
     const selectedRepos = stored.map((r) => ({
       provider: r.provider,
@@ -254,7 +256,7 @@ export async function syncIntegration(userId: string, provider: string) {
         userId,
         accessToken: token,
         handle: integration.handle,
-        since: integration.lastSyncAt || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+        since: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
       },
       selectedRepos,
     );

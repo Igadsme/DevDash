@@ -110,6 +110,21 @@ export async function getWhatNeedsMe(userId: string): Promise<ActionItem[]> {
           timestamp: ts.toISOString(),
           score,
         });
+      } else {
+        const score = 42 + Math.min(ageHours(ts), 240) * 0.12;
+        items.push({
+          id: `pr-open-${pr.id}`,
+          priority: priorityFromScore(score),
+          type: "pr",
+          title: pr.draft ? "Your draft PR is still open" : "Your PR is still open",
+          repo: pr.repo?.name || "unknown",
+          age: relativeTime(ts),
+          context: `${pr.title} · #${pr.number}`,
+          action: "View",
+          url: pr.url,
+          timestamp: ts.toISOString(),
+          score,
+        });
       }
     }
   }

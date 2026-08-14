@@ -1,16 +1,29 @@
 import { prisma } from "@/lib/prisma";
 import { apiError, json, requireUser } from "@/lib/api";
 import { z } from "zod";
+import { syncIntegration } from "@/lib/sync/engine";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
     const user = await requireUser();
-    const repos = await prisma.repository.findMany({
+    let repos = await prisma.repository.findMany({
       where: { userId: user.id },
       orderBy: { lastActivityAt: "desc" },
     });
+    if (!repos.length) {
+      const github = await prisma.integration.findUnique({
+        where: { userId_provider: { userId: user.id, provider: "github" } },
+      });
+      if (github?.status === "connected" || github?.status === "syncing" || github?.status === "error") {
+        await syncIntegration(user.id, "github").catch(() => undefined);
+        repos = await prisma.repository.findMany({
+          where: { userId: user.id },
+          orderBy: { lastActivityAt: "desc" },
+        });
+      }
+    }
     return json({ repos });
   } catch (error) {
     return apiError(error);

@@ -28,8 +28,29 @@ export default function Auth({ mode, onNavigate }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const continueGitHub = () => {
-    void signIn("github", { callbackUrl: "/onboarding" });
+  const continueGitHub = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const result = await signIn("github", {
+        callbackUrl: "/onboarding",
+        redirect: false,
+      });
+      if (result?.error) {
+        setError("GitHub sign-in failed. Check GITHUB_ID, GITHUB_SECRET, and the OAuth callback URL.");
+        setBusy(false);
+        return;
+      }
+      if (result?.url) {
+        window.location.assign(result.url);
+        return;
+      }
+      setError("GitHub did not return a redirect URL. Try again in a few seconds.");
+      setBusy(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start GitHub sign-in.");
+      setBusy(false);
+    }
   };
 
   const submitEmail = async () => {
@@ -194,14 +215,16 @@ export default function Auth({ mode, onNavigate }: Props) {
           <div className="text-xs mb-3" style={{ color: "#ef4444" }}>{error}</div>
         )}
         <button
-          onClick={continueGitHub}
+          type="button"
+          onClick={() => void continueGitHub()}
+          disabled={busy}
           className="w-full flex items-center justify-center gap-2.5 py-2.5 rounded-lg text-sm font-semibold mb-4 transition-all"
-          style={{ background: "#f0f0f2", color: "#0a0a0c" }}
+          style={{ background: "#f0f0f2", color: "#0a0a0c", opacity: busy ? 0.7 : 1 }}
           onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.background = "#d8d8dc")}
           onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.background = "#f0f0f2")}
         >
           <GitBranch size={16} />
-          Continue with GitHub
+          {busy ? "Redirecting to GitHub…" : "Continue with GitHub"}
         </button>
 
         <div className="flex items-center gap-3 mb-4">

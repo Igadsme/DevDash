@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { greetingForHour, hourInTz } from "@/lib/dates";
+import { greetingForHour, hourInTz, relativeTime } from "@/lib/dates";
 import { getWhatNeedsMe } from "@/lib/engines/actions";
 import { computeDevHealth } from "@/lib/engines/health";
 import { computeFocus } from "@/lib/engines/focus";
@@ -12,12 +12,17 @@ export async function getDashboard(userId: string) {
   if (!user) throw new Error("User not found");
 
   const github = user.integrations.find((i) => i.provider === "github");
-  const [actions, metrics, week, health, focus] = await Promise.all([
+  const [actions, metrics, week, health, focus, recentRepos] = await Promise.all([
     getWhatNeedsMe(userId),
     computeMetrics(userId, 7),
     computeWeekTimeline(userId),
     computeDevHealth(userId),
     computeFocus(userId),
+    prisma.repository.findMany({
+      where: { userId, selected: true },
+      orderBy: { lastActivityAt: "desc" },
+      take: 8,
+    }),
   ]);
 
   const existing = await prisma.generatedSummary.findFirst({
@@ -57,6 +62,14 @@ export async function getDashboard(userId: string) {
     }),
     githubConnected: github?.status === "connected",
     lastSyncAt: github?.lastSyncAt,
+    recentRepos: recentRepos.map((repo) => ({
+      id: repo.id,
+      name: repo.name,
+      fullName: repo.fullName,
+      language: repo.language,
+      url: repo.url,
+      lastActivityLabel: repo.lastActivityAt ? relativeTime(repo.lastActivityAt) : "No recent activity",
+    })),
     actions: actions.slice(0, 4),
     actionCount: actions.length,
     metrics: {

@@ -11,6 +11,9 @@ async function githubFetch<T>(token: string, path: string): Promise<T> {
       "User-Agent": "DevDash",
     },
   });
+  if (res.status === 409) {
+    return [] as T;
+  }
   if (res.status === 401 || res.status === 403) {
     const body = await res.text();
     if (res.status === 401) {
@@ -114,6 +117,47 @@ type GhReview = {
   user: { login: string } | null;
 };
 
+type GhUserEvent = {
+  id: string;
+  type: string;
+  created_at: string;
+  repo?: { name: string };
+  payload?: {
+    ref?: string;
+    ref_type?: string;
+    head?: string;
+    commits?: Array<{ sha: string; message: string; url?: string; distinct?: boolean }>;
+    pull_request?: {
+      id: number;
+      number: number;
+      title: string;
+      html_url: string;
+      state: string;
+      draft?: boolean;
+      merged_at?: string | null;
+      user?: { login: string } | null;
+      created_at?: string;
+    };
+    action?: string;
+    issue?: {
+      id: number;
+      number: number;
+      title: string;
+      html_url: string;
+      state: string;
+      user?: { login: string } | null;
+      created_at?: string;
+      closed_at?: string | null;
+    };
+    release?: {
+      id: number;
+      name: string | null;
+      tag_name: string;
+      html_url: string;
+    };
+  };
+};
+
 export class GitHubAdapter implements SourceControlAdapter {
   provider = "github" as const;
 
@@ -136,8 +180,102 @@ export class GitHubAdapter implements SourceControlAdapter {
     const login = ctx.handle?.replace(/^@/, "") || "";
     const since = ctx.since || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const sinceIso = since.toISOString();
-    const selected = repos.slice(0, 20);
+    const selected = repos.slice(0, 12);
     const events: NormalizedEvent[] = [];
+
+    if (login) {
+      try {
+        const feed = await paginate<GhUserEvent>(ctx.accessToken, `/users/${encodeURIComponent(login)}/events`, 2);
+        for (const item of feed) {
+          const when = new Date(item.created_at);
+          if (when < since) continue;
+          const repoName = item.repo?.name || null;
+          const payload = item.payload || {};
+
+          if (item.type === "PushEvent") {
+            for (const commit of payload.commits || []) {
+              if (commit.distinct === false) continue;
+              events.push({
+                provider: "github",
+                type: "commit",
+                repository: repoName,
+                title: (commit.message || "Commit").split("\n")[0],
+                description: commit.sha.slice(0, 7),
+                url: repoName ? `https://github.com/${repoName}/commit/${commit.sha}` : null,
+                timestamp: when,
+                externalId: commit.sha,
+                metadata: { sha: commit.sha },
+              });
+            }
+            continue;
+          }
+
+          if (item.type === "PullRequestEvent" && payload.pull_request) {
+            const pr = payload.pull_request;
+            events.push({
+              provider: "github",
+              type: "pr",
+              repository: repoName,
+              title: `${pr.merged_at ? "Merged" : payload.action === "closed" ? "Closed" : "Opened"} PR #${pr.number}`,
+              description: pr.title,
+              url: pr.html_url,
+              timestamp: when,
+              externalId: String(pr.id),
+              metadata: {
+                number: pr.number,
+                state: pr.state,
+                merged: Boolean(pr.merged_at),
+                draft: Boolean(pr.draft),
+                author: pr.user?.login,
+                isAuthor: pr.user?.login === login,
+                openedAt: pr.created_at,
+                mergedAt: pr.merged_at,
+                title: pr.title,
+              },
+            });
+            continue;
+          }
+
+          if (item.type === "IssuesEvent" && payload.issue) {
+            const issue = payload.issue;
+            events.push({
+              provider: "github",
+              type: "issue",
+              repository: repoName,
+              title: `${payload.action === "closed" ? "Closed" : "Opened"} issue #${issue.number}`,
+              description: issue.title,
+              url: issue.html_url,
+              timestamp: when,
+              externalId: String(issue.id),
+              metadata: {
+                number: issue.number,
+                state: issue.state,
+                isAuthor: issue.user?.login === login,
+                openedAt: issue.created_at,
+                closedAt: issue.closed_at,
+                title: issue.title,
+              },
+            });
+            continue;
+          }
+
+          if (item.type === "CreateEvent" && payload.ref_type === "tag") {
+            events.push({
+              provider: "github",
+              type: "release",
+              repository: repoName,
+              title: `Created tag ${payload.ref}`,
+              description: payload.ref,
+              url: repoName ? `https://github.com/${repoName}/releases/tag/${payload.ref}` : null,
+              timestamp: when,
+              externalId: `tag-${item.id}`,
+            });
+          }
+        }
+      } catch {
+        // Fall through to per-repository fetches.
+      }
+    }
 
     for (const repo of selected) {
       const [owner, name] = repo.fullName.split("/");
@@ -148,7 +286,7 @@ export class GitHubAdapter implements SourceControlAdapter {
           ctx.accessToken,
           `/repos/${owner}/${name}/commits?author=${encodeURIComponent(login)}&since=${sinceIso}&per_page=40`,
         );
-        for (const commit of commits) {
+        for (const commit of Array.isArray(commits) ? commits : []) {
           events.push({
             provider: "github",
             type: "commit",
