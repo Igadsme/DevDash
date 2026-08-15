@@ -137,6 +137,9 @@ export default function Pricing({ onNavigate }: Props) {
           <p className="text-base" style={{ color: "#6b6b80" }}>
             Start free. Upgrade when you need more. No surprise bills.
           </p>
+          <p className="text-xs mt-3" style={{ color: "#3e3e50" }}>
+            Solo is live. Pro and Team billing is not enabled yet — GitHub sign-in is free.
+          </p>
         </div>
 
         {/* Plans */}

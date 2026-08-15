@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   title: "DevDash — Your operating system for software development",
   description:
     "Connect engineering activity from GitHub and beyond into a personal developer command center: priorities, focus, Dev Health, and AI summaries.",
-  robots: { index: false, follow: false },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

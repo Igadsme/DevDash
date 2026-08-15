@@ -127,8 +127,11 @@ npx prisma studio
 2. Set environment variables from `.env.example`.
 3. Set `AUTH_URL` to the public https URL.
 4. GitHub callback: `https://YOUR-SERVICE.onrender.com/api/auth/callback/github`
-5. Build: `npm install && npx prisma generate && npm run build`
-6. Start: `npx prisma migrate deploy && npm start`
+5. Set `GEMINI_MODEL` to `gemini-3.5-flash` (2.0/2.5 Flash are shut down for new keys).
+6. Generate a unique `AUTH_SECRET` and `CRON_SECRET`. Do not reuse the local placeholder.
+7. `DATABASE_URL` should be the Render Internal Database URL. SSL is added automatically in production if missing.
+8. Build: `npm install && npx prisma generate && npm run build`
+9. Start: `npx prisma migrate deploy && npm start`
 
 `render.yaml` is included. Cron hits `/api/cron/sync` so large GitHub syncs can move to a worker.
 

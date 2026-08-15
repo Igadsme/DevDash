@@ -1,3 +1,5 @@
+import { ApiError } from "@/lib/api";
+
 type Bucket = { count: number; resetAt: number };
 
 const buckets = new Map<string, Bucket>();
@@ -19,8 +21,6 @@ export function rateLimit(key: string, limit: number, windowMs: number) {
 export function assertRateLimit(key: string, limit = 60, windowMs = 60_000) {
   const result = rateLimit(key, limit, windowMs);
   if (!result.ok) {
-    const err = new Error("Too many requests. Please wait a moment and try again.");
-    (err as Error & { status?: number }).status = 429;
-    throw err;
+    throw new ApiError(429, "Too many requests. Please wait a moment and try again.", "RATE_LIMITED");
   }
 }

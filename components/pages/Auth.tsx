@@ -207,7 +207,7 @@ export default function Auth({ mode, onNavigate }: Props) {
           {mode === "signin" ? "Sign in to DevDash" : "Create your account"}
         </h1>
         <p className="text-sm mb-6" style={{ color: "#6b6b80" }}>
-          {mode === "signin" ? "Welcome back." : "Start your 14-day free trial. No credit card required."}
+          {mode === "signin" ? "Welcome back." : "Create a free account. GitHub is the fastest way in."}
         </p>
 
         {/* GitHub primary */}

@@ -6,7 +6,10 @@ import { syncUser } from "@/lib/sync/engine";
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   const header = request.headers.get("authorization");
-  if (secret && header !== `Bearer ${secret}`) {
+  if (!secret) {
+    return json({ error: "CRON_SECRET is not configured." }, 503);
+  }
+  if (header !== `Bearer ${secret}`) {
     return json({ error: "Unauthorized" }, 401);
   }
   const users = await prisma.user.findMany({
