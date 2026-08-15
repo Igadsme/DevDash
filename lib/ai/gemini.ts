@@ -1,4 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { prisma } from "@/lib/prisma";
 import { daysAgo, startOfMonth, startOfWeek } from "@/lib/dates";
 import { getWhatNeedsMe } from "@/lib/engines/actions";
@@ -6,17 +5,54 @@ import { computeDevHealth } from "@/lib/engines/health";
 import { computeFocus } from "@/lib/engines/focus";
 import { computeMetrics, computeWeekTimeline } from "@/lib/engines/metrics";
 
-function getClient() {
-  const key = process.env.GEMINI_API_KEY;
-  if (!key) return null;
-  return new GoogleGenerativeAI(key);
+const RETIRED_MODEL = /gemini-(1\.5|2\.0|2\.5)(-|$)/;
+
+function modelCandidates() {
+  const names = [
+    process.env.GEMINI_MODEL,
+    "gemini-3.5-flash",
+    "gemini-3.6-flash",
+    "gemini-3.1-flash-lite",
+  ].filter((name): name is string => Boolean(name));
+  const unique = [...new Set(names)].filter((name) => !RETIRED_MODEL.test(name));
+  return unique.length ? unique : ["gemini-3.5-flash"];
 }
 
-const MODEL_CANDIDATES = [
-  process.env.GEMINI_MODEL,
-  "gemini-2.5-flash",
-  "gemini-3.5-flash",
-].filter((name, index, all): name is string => Boolean(name) && all.indexOf(name) === index);
+async function generateWithGemini(promptText: string) {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) return null;
+
+  for (const model of modelCandidates()) {
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": key,
+          },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: promptText }] }],
+          }),
+        },
+      );
+      const data = (await res.json()) as {
+        error?: { message?: string };
+        candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+      };
+      if (!res.ok) {
+        console.error(`[gemini] ${model} failed:`, data.error?.message || res.status);
+        continue;
+      }
+      const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
+      if (text.trim()) return text;
+    } catch (error) {
+      console.error(`[gemini] ${model} failed:`, error instanceof Error ? error.message : error);
+    }
+  }
+  return null;
+}
 
 export async function buildAiContext(userId: string, intent: string) {
   const since = /month|quarter|sprint/i.test(intent) ? startOfMonth() : daysAgo(7);
@@ -89,7 +125,6 @@ export async function generateGroundedText(userId: string, prompt: string, kind 
 
   const context = await buildAiContext(userId, prompt);
   const sources = sourcesFromContext(context);
-  const client = getClient();
 
   const system = `You are DevDash, a personal engineering assistant.
 Only use the structured context provided. Never invent commits, PRs, reviews, issues, or accomplishments.
@@ -99,19 +134,11 @@ Do not diagnose burnout or medical conditions.
 Keep a calm, developer-first tone.
 Format with short paragraphs and optional markdown bold.`;
 
-  if (client) {
-    const promptText = `${system}\n\nUser question (${kind}): ${prompt}\n\nStructured context (JSON):\n${JSON.stringify(context)}`;
-    for (const modelName of MODEL_CANDIDATES) {
-      try {
-        const result = await client.getGenerativeModel({ model: modelName }).generateContent(promptText);
-        const text = result.response.text();
-        if (text?.trim()) {
-          return { content: text, sources };
-        }
-      } catch (error) {
-        console.error(`[gemini] ${modelName} failed:`, error instanceof Error ? error.message : error);
-      }
-    }
+  const text = await generateWithGemini(
+    `${system}\n\nUser question (${kind}): ${prompt}\n\nStructured context (JSON):\n${JSON.stringify(context)}`,
+  );
+  if (text) {
+    return { content: text, sources };
   }
 
   return {
