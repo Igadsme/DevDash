@@ -6,14 +6,17 @@ import { computeDevHealth } from "@/lib/engines/health";
 import { computeFocus } from "@/lib/engines/focus";
 import { computeMetrics, computeWeekTimeline } from "@/lib/engines/metrics";
 
-function getModel() {
+function getClient() {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return null;
-  const genAI = new GoogleGenerativeAI(key);
-  return genAI.getGenerativeModel({
-    model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
-  });
+  return new GoogleGenerativeAI(key);
 }
+
+const MODEL_CANDIDATES = [
+  process.env.GEMINI_MODEL,
+  "gemini-2.5-flash",
+  "gemini-3.5-flash",
+].filter((name, index, all): name is string => Boolean(name) && all.indexOf(name) === index);
 
 export async function buildAiContext(userId: string, intent: string) {
   const since = /month|quarter|sprint/i.test(intent) ? startOfMonth() : daysAgo(7);
@@ -86,7 +89,7 @@ export async function generateGroundedText(userId: string, prompt: string, kind 
 
   const context = await buildAiContext(userId, prompt);
   const sources = sourcesFromContext(context);
-  const model = getModel();
+  const client = getClient();
 
   const system = `You are DevDash, a personal engineering assistant.
 Only use the structured context provided. Never invent commits, PRs, reviews, issues, or accomplishments.
@@ -96,18 +99,25 @@ Do not diagnose burnout or medical conditions.
 Keep a calm, developer-first tone.
 Format with short paragraphs and optional markdown bold.`;
 
-  if (!model) {
-    return {
-      content: fallbackFromContext(prompt, context, kind),
-      sources,
-    };
+  if (client) {
+    const promptText = `${system}\n\nUser question (${kind}): ${prompt}\n\nStructured context (JSON):\n${JSON.stringify(context)}`;
+    for (const modelName of MODEL_CANDIDATES) {
+      try {
+        const result = await client.getGenerativeModel({ model: modelName }).generateContent(promptText);
+        const text = result.response.text();
+        if (text?.trim()) {
+          return { content: text, sources };
+        }
+      } catch (error) {
+        console.error(`[gemini] ${modelName} failed:`, error instanceof Error ? error.message : error);
+      }
+    }
   }
 
-  const result = await model.generateContent(
-    `${system}\n\nUser question (${kind}): ${prompt}\n\nStructured context (JSON):\n${JSON.stringify(context)}`,
-  );
-  const text = result.response.text();
-  return { content: text, sources };
+  return {
+    content: fallbackFromContext(prompt, context, kind),
+    sources,
+  };
 }
 
 function fallbackFromContext(
