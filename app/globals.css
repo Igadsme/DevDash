@@ -1,0 +1,61 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap");
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 22% 96%;
+  --foreground: 222 32% 14%;
+  --border: 220 16% 87%;
+  --card: 0 0% 100%;
+  --muted: 220 18% 93%;
+  --muted-foreground: 220 11% 46%;
+  --primary: 222 36% 18%;
+  --accent: 38 92% 62%;
+  --teal: 182 52% 47%;
+  --destructive: 2 72% 52%;
+  --sidebar-foreground: 214 24% 79%;
+  --sidebar-border: 222 27% 21%;
+  --sidebar-accent: 222 28% 19%;
+}
+
+.dark {
+  --background: 222 36% 10%;
+  --foreground: 214 24% 92%;
+  --border: 222 27% 23%;
+  --card: 222 31% 14%;
+  --muted: 222 27% 18%;
+  --muted-foreground: 220 13% 65%;
+  --primary: 222 40% 8%;
+  --sidebar-border: 222 28% 17%;
+  --sidebar-accent: 222 30% 16%;
+}
+
+html { min-width: 320px; background: hsl(var(--background)); }
+body { min-height: 100%; background: hsl(var(--background)); color: hsl(var(--foreground)); font-family: "Manrope", "Avenir Next", "Segoe UI", sans-serif; }
+a { color: inherit; text-decoration: none; }
+button, a, input, select { -webkit-tap-highlight-color: transparent; }
+::selection { background: hsl(var(--accent) / .45); color: hsl(var(--foreground)); }
+
+.font-mono { font-family: "DM Mono", ui-monospace, monospace; }
+.devdash-shell { background: radial-gradient(circle at 76% 3%, hsl(38 92% 62% / .08), transparent 23rem), hsl(var(--background)); }
+.sidebar-grid { background-image: linear-gradient(hsl(214 24% 92% / .035) 1px, transparent 1px), linear-gradient(90deg, hsl(214 24% 92% / .035) 1px, transparent 1px); background-size: 22px 22px; }
+.soft-card { box-shadow: 0 10px 30px hsl(222 32% 14% / .05); }
+.metric-number { letter-spacing: -.06em; font-variant-numeric: tabular-nums; }
+.pulse-dot { animation: pulse-dot 2.6s ease-in-out infinite; }
+.rise-in { animation: rise-in .42s cubic-bezier(.22,.8,.24,1) both; }
+.scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
+.scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 999px; }
+
+/* Preserve readable styling on the existing data pages while moving them to the reference palette. */
+.devdash-shell .text-white { color: hsl(var(--foreground)); }
+.devdash-shell aside .text-white { color: white; }
+.devdash-shell .text-slate-200, .devdash-shell .text-slate-300 { color: hsl(var(--foreground) / .82); }
+.devdash-shell .text-slate-400, .devdash-shell .text-slate-500 { color: hsl(var(--muted-foreground)); }
+.devdash-shell .border-white\/10 { border-color: hsl(var(--border)); }
+.devdash-shell .bg-white\/5 { background: hsl(var(--muted) / .52); }
+.devdash-shell input.bg-panel { background: hsl(var(--card)); color: hsl(var(--foreground)); }
+
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse-dot { 0%,100% { opacity: .45; transform: scale(.92); } 50% { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
