@@ -14,7 +14,8 @@ export function summarizeEvents(events: Event[]) {
   }, {});
 
   return {
-    built: (counts.PR_OPENED ?? 0) + (counts.PR_MERGED ?? 0),
+    built: (counts.PR_OPENED ?? 0) + (counts.PR_MERGED ?? 0) + (counts.COMMIT ?? 0),
+    commits: counts.COMMIT ?? 0,
     reviewed: counts.PR_REVIEWED ?? 0,
     blocked: counts.CI_FAILED ?? 0,
     issues: counts.ISSUE_ASSIGNED ?? 0
@@ -24,7 +25,7 @@ export function summarizeEvents(events: Event[]) {
 export function buildNarrativeSummary(events: Event[]) {
   const summary = summarizeEvents(events);
 
-  return `Over the selected period you touched ${summary.built} shipping events, reviewed ${summary.reviewed} pull requests, and hit ${summary.blocked} CI blockers across ${new Set(events.map((event) => event.repo)).size} repositories.`;
+  return `Over the selected period you recorded ${summary.commits} commits and ${summary.built} total shipping events, reviewed ${summary.reviewed} pull requests, and hit ${summary.blocked} CI blockers across ${new Set(events.map((event) => event.repo)).size} repositories.`;
 }
 
 export function calculateInterruptCost(
@@ -33,7 +34,7 @@ export function calculateInterruptCost(
 ) {
   const orderedEvents = [...events]
     .filter((event) =>
-      ["PR_OPENED", "PR_MERGED", "PR_REVIEWED", "CI_FAILED"].includes(event.type)
+      ["COMMIT", "PR_OPENED", "PR_MERGED", "PR_REVIEWED", "CI_FAILED"].includes(event.type)
     )
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 

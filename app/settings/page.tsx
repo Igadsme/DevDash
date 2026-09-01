@@ -33,7 +33,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <SiteShell>
+    <SiteShell user={user}>
       <Panel className="max-w-3xl">
         <SectionHeader
           title="Settings"

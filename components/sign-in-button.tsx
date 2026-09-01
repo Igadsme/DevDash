@@ -4,8 +4,16 @@ import { signIn, signOut } from "next-auth/react";
 
 import { Button } from "@/components/button";
 
-export function SignInButton({ disabled = false }: { disabled?: boolean }) {
-  return <Button disabled={disabled} onClick={() => signIn("github")}>{disabled ? "Setup required" : "Connect GitHub"}</Button>;
+export function SignInButton({
+  disabled = false,
+  callbackUrl = "/dashboard",
+  label = "Continue with GitHub"
+}: {
+  disabled?: boolean;
+  callbackUrl?: string;
+  label?: string;
+}) {
+  return <Button disabled={disabled} onClick={() => signIn("github", { callbackUrl })}>{disabled ? "Setup required" : label}</Button>;
 }
 
 export function SignOutButton() {

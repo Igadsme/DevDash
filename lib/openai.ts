@@ -13,7 +13,7 @@ function buildFallbackSummary(events: Event[]) {
 
   return [
     `You moved work forward in ${repos.length} repositories this week.`,
-    `${summary.built} shipping events were recorded, including opened or merged pull requests.`,
+    `${summary.built} shipping events were recorded, including ${summary.commits} commits and opened or merged pull requests.`,
     `${summary.reviewed} review events were completed, while ${summary.blocked} CI failures and ${summary.issues} assigned issues still need attention.`
   ].join(" ");
 }

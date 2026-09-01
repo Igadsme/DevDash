@@ -26,7 +26,7 @@ export const authOptions: NextAuthOptions = {
     strategy: "database"
   },
   pages: {
-    signIn: "/integrations"
+    signIn: "/signin"
   },
   providers: githubProvider ? [githubProvider] : [],
   callbacks: {

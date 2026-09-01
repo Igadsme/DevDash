@@ -18,7 +18,7 @@ export default async function DashboardPage() {
   const data = await getDashboardData();
 
   return (
-    <SiteShell>
+    <SiteShell user={data.user} workspaceName={data.sync?.username}>
       {data.syncError ? <div className="mb-5 rounded-lg border border-amber/50 bg-amber/10 px-4 py-3 text-[12px] text-inkText">{data.syncError}</div> : null}
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
         <Panel>
@@ -90,6 +90,10 @@ export default async function DashboardPage() {
           </Panel>
         </div>
       </div>
+      <Panel className="mt-6">
+        <SectionHeader title="Recent commits" description="Your latest authored commits across accessible repositories." action={<Link href="/repositories" className="text-sm font-semibold text-accent">View all repositories</Link>} />
+        {data.sync?.recentCommits.length ? <div className="divide-y divide-white/10">{data.sync.recentCommits.slice(0, 8).map((commit) => <Link key={`${commit.repo}-${commit.sha}`} href={commit.url} target="_blank" className="flex flex-col gap-1 py-3 transition hover:text-accent sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="truncate text-sm font-medium text-white">{commit.title}</p><p className="mt-1 text-xs text-slate-500">{commit.repo} · {commit.shortSha}</p></div><span className="shrink-0 text-xs text-slate-500">{formatDistanceToNow(commit.timestamp)} ago</span></Link>)}</div> : <EmptyState title="No recent commits found" body="Once GitHub is connected, your authored commits from recently active repositories appear here." link={{ href: "/integrations", label: "Check GitHub connection" }} />}
+      </Panel>
     </SiteShell>
   );
 }

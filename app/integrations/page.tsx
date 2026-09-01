@@ -7,13 +7,13 @@ export default async function IntegrationsPage() {
   const data = await getIntegrationData();
 
   return (
-    <SiteShell>
+    <SiteShell user={data.user}>
       <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
         <Panel>
           <SectionHeader
             title="GitHub Connection"
             description="Server-side only, read-oriented integration for developer workflows."
-            action={data.githubConnected ? <SignOutButton /> : <SignInButton disabled={!data.githubConfigured || !data.authConfigured} />}
+            action={data.githubConnected ? <SignOutButton /> : <SignInButton callbackUrl="/integrations" label="Connect GitHub" disabled={!data.githubConfigured || !data.authConfigured} />}
           />
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm text-slate-400">Connection status</p>
@@ -21,8 +21,8 @@ export default async function IntegrationsPage() {
               {data.githubConnected ? "Connected" : data.githubConfigured ? "Ready to connect" : "Setup required"}
             </p>
             <p className="mt-3 text-sm leading-7 text-slate-300">
-              DevDash fetches pull requests, review requests, reviews, assigned issues, and CI
-              status on the server, then normalizes them into private event records for your own dashboard.
+              DevDash fetches repositories, recent commits, pull requests, review requests,
+              assigned issues, and CI status on the server, then normalizes activity into private records for your dashboard.
             </p>
           </div>
           {!data.githubConfigured ? (

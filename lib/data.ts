@@ -2,15 +2,27 @@ import { redirect } from "next/navigation";
 
 import { buildFocusInsights, buildNarrativeSummary, getRangeStart, type TimelineRange } from "@/lib/analytics";
 import { getAuthSession } from "@/lib/auth";
-import { syncGitHubData } from "@/lib/github";
+import { syncGitHubData, type SyncResult } from "@/lib/github";
 import { generateWeeklySummary } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { hasAuthSecret, hasGitHubOAuthConfig, hasOpenAIConfig } from "@/lib/config";
 
+const syncCache = new Map<string, { expiresAt: number; promise: Promise<SyncResult | null> }>();
+
 async function syncGitHubSafely(userId: string) {
+  const cached = syncCache.get(userId);
+  const promise = cached && cached.expiresAt > Date.now()
+    ? cached.promise
+    : syncGitHubData(userId);
+
+  if (!cached || cached.expiresAt <= Date.now()) {
+    syncCache.set(userId, { expiresAt: Date.now() + 2 * 60 * 1000, promise });
+  }
+
   try {
-    return { sync: await syncGitHubData(userId), syncError: null as string | null };
+    return { sync: await promise, syncError: null as string | null };
   } catch (error) {
+    syncCache.delete(userId);
     console.error("GitHub sync failed.", error);
     return {
       sync: null,
@@ -23,7 +35,7 @@ export async function requireUser() {
   const session = await getAuthSession();
 
   if (!session?.user?.id) {
-    redirect("/integrations");
+    redirect("/signin");
   }
 
   const user = await prisma.user.findUnique({
@@ -33,7 +45,7 @@ export async function requireUser() {
   });
 
   if (!user) {
-    redirect("/integrations");
+    redirect("/signin");
   }
 
   return user;
@@ -69,7 +81,7 @@ export async function getDashboardData() {
 
 export async function getTimelineData(range: TimelineRange) {
   const user = await requireUser();
-  const { syncError } = await syncGitHubSafely(user.id);
+  const { sync, syncError } = await syncGitHubSafely(user.id);
 
   const events = await prisma.event.findMany({
     where: {
@@ -85,6 +97,7 @@ export async function getTimelineData(range: TimelineRange) {
 
   return {
     user,
+    sync,
     events,
     syncError,
     summary: buildNarrativeSummary(events)
@@ -93,7 +106,7 @@ export async function getTimelineData(range: TimelineRange) {
 
 export async function getFocusData() {
   const user = await requireUser();
-  const { syncError } = await syncGitHubSafely(user.id);
+  const { sync, syncError } = await syncGitHubSafely(user.id);
 
   const events = await prisma.event.findMany({
     where: {
@@ -109,9 +122,17 @@ export async function getFocusData() {
 
   return {
     user,
+    sync,
     syncError,
     focus: buildFocusInsights(events, user)
   };
+}
+
+export async function getRepositoriesData() {
+  const user = await requireUser();
+  const { sync, syncError } = await syncGitHubSafely(user.id);
+
+  return { user, sync, syncError };
 }
 
 export async function getIntegrationData() {

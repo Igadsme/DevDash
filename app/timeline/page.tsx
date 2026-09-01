@@ -15,7 +15,7 @@ export default async function TimelinePage({
   const data = await getTimelineData(range);
 
   return (
-    <SiteShell>
+    <SiteShell user={data.user} workspaceName={data.sync?.username}>
       <div className="space-y-6">
         {data.syncError ? <div className="rounded-lg border border-amber/50 bg-amber/10 px-4 py-3 text-[12px] text-inkText">{data.syncError}</div> : null}
         <Panel>

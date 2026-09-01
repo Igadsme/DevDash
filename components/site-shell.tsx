@@ -4,21 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { PropsWithChildren } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { Activity, BarChart3, Bell, ChevronDown, CircleHelp, Command, GitPullRequest, Grid2X2, Menu, Network, PanelLeftClose, PanelLeftOpen, Search, Settings2, Sparkles, Target, X } from "lucide-react";
+import { Activity, BarChart3, Bell, ChevronDown, CircleHelp, Command, FolderGit2, GitPullRequest, Grid2X2, Menu, Network, PanelLeftClose, PanelLeftOpen, Search, Settings2, Sparkles, Target, X } from "lucide-react";
 
 const primaryNav = [
   { href: "/dashboard", label: "Overview", icon: Grid2X2 },
   { href: "/timeline", label: "Activity", icon: Activity },
   { href: "/focus", label: "Focus", icon: Target },
-  { href: "/dashboard", label: "Pull requests", icon: GitPullRequest, count: "4" }
+  { href: "/dashboard", label: "Pull requests", icon: GitPullRequest }
 ];
 const workspaceNav = [
+  { href: "/repositories", label: "Repositories", icon: FolderGit2 },
   { href: "/dashboard", label: "Analytics", icon: BarChart3 },
   { href: "/dashboard", label: "AI insights", icon: Sparkles }
 ];
 const allNav = [...primaryNav, ...workspaceNav, { href: "/integrations", label: "Integrations", icon: Network }, { href: "/settings", label: "Settings", icon: Settings2 }];
 
-export function SiteShell({ children }: PropsWithChildren) {
+type ShellUser = {
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+};
+
+export function SiteShell({ children, user, workspaceName }: PropsWithChildren<{ user?: ShellUser | null; workspaceName?: string | null }>) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -28,8 +35,9 @@ export function SiteShell({ children }: PropsWithChildren) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(2);
   const [helpOpen, setHelpOpen] = useState(false);
-  const [workspaceOpen, setWorkspaceOpen] = useState(false);
-  const [workspace, setWorkspace] = useState("Acme Engineering");
+  const workspace = workspaceName || user?.name || "GitHub workspace";
+  const displayName = user?.name || user?.email || "DevDash user";
+  const initials = displayName.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("devdash-theme");
@@ -74,7 +82,6 @@ export function SiteShell({ children }: PropsWithChildren) {
       <Link key={`${item.label}-${item.href}`} href={item.href} onClick={() => setMobileOpen(false)} className={`group flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors ${active ? "bg-sidebarActive text-white" : "text-sidebarText hover:bg-sidebarActive/70 hover:text-white"} ${collapsed ? "justify-center px-2" : ""}`}>
         <Icon size={16} strokeWidth={active ? 2.3 : 1.8} />
         {!collapsed && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
-        {!collapsed && "count" in item && item.count ? <span className="font-mono text-[10px] text-amber">{item.count}</span> : null}
       </Link>
     );
   };
@@ -98,10 +105,10 @@ export function SiteShell({ children }: PropsWithChildren) {
           {!collapsed ? <button onClick={() => setMobileOpen(false)} className="rounded p-1.5 text-sidebarText md:hidden"><X size={16} /></button> : null}
         </div>
 
-        <div className="relative mt-7"><button aria-expanded={workspaceOpen} onClick={() => setWorkspaceOpen((value) => !value)} className={`flex w-full items-center gap-2 rounded-md border border-sidebarBorder bg-[#151d30] px-2.5 py-2 ${collapsed ? "justify-center border-0 bg-transparent" : ""}`}>
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-teal font-mono text-[10px] font-bold text-navy">AC</span>
-          {!collapsed ? <><span className="min-w-0 flex-1 truncate text-left text-[12px] font-semibold text-white">{workspace}</span><ChevronDown size={14} className="text-sidebarText/50" /></> : null}
-        </button>{workspaceOpen && !collapsed ? <div className="absolute left-0 right-0 top-[44px] z-50 rounded-md border border-sidebarBorder bg-[#151d30] p-1 shadow-xl">{["Acme Engineering", "Personal workspace"].map((name) => <button key={name} onClick={() => { setWorkspace(name); setWorkspaceOpen(false); }} className="w-full rounded px-2 py-2 text-left text-[11px] font-semibold text-sidebarText hover:bg-sidebarActive hover:text-white">{name}</button>)}</div> : null}</div>
+        <div className="relative mt-7"><Link href="/repositories" className={`flex w-full items-center gap-2 rounded-md border border-sidebarBorder bg-[#151d30] px-2.5 py-2 ${collapsed ? "justify-center border-0 bg-transparent" : ""}`}>
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-teal font-mono text-[10px] font-bold text-navy">{initials || "GH"}</span>
+          {!collapsed ? <><span className="min-w-0 flex-1 truncate text-left text-[12px] font-semibold text-white">{workspace}</span><FolderGit2 size={14} className="text-sidebarText/50" /></> : null}
+        </Link></div>
 
         <nav className="scrollbar-thin mt-5 flex-1 overflow-y-auto">
           <div className="space-y-0.5">{primaryNav.map(navItem)}</div>
@@ -113,7 +120,7 @@ export function SiteShell({ children }: PropsWithChildren) {
 
         {!collapsed ? <div className="border-t border-sidebarBorder pt-3">
           <button onClick={() => setHelpOpen(true)} className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-[12px] font-semibold text-sidebarText/70 hover:bg-sidebarActive"><CircleHelp size={16} /> Help center <span className="ml-auto font-mono text-[10px] text-sidebarText/40">?</span></button>
-          <Link href="/settings" className="mt-2 flex items-center gap-2 rounded-md px-2 py-2.5 hover:bg-sidebarActive"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500 text-[11px] font-bold text-white">JR</span><div className="min-w-0 flex-1"><div className="truncate text-[11px] font-bold text-white">Jordan Rivera</div><div className="truncate text-[10px] text-sidebarText/50">Account settings</div></div><ChevronDown size={14} className="text-sidebarText/50" /></Link>
+          <Link href="/settings" className="mt-2 flex items-center gap-2 rounded-md px-2 py-2.5 hover:bg-sidebarActive">{user?.image ? <img src={user.image} alt="" className="h-7 w-7 rounded-full object-cover" /> : <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-500 text-[11px] font-bold text-white">{initials || "DD"}</span>}<div className="min-w-0 flex-1"><div className="truncate text-[11px] font-bold text-white">{displayName}</div><div className="truncate text-[10px] text-sidebarText/50">{user?.email || "Account settings"}</div></div><ChevronDown size={14} className="text-sidebarText/50" /></Link>
         </div> : null}
       </aside>
 

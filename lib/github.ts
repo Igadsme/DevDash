@@ -69,6 +69,68 @@ type GitHubUser = {
   login: string;
 };
 
+type GitHubRepository = {
+  id: number;
+  name: string;
+  full_name: string;
+  html_url: string;
+  description: string | null;
+  private: boolean;
+  fork: boolean;
+  archived: boolean;
+  language: string | null;
+  default_branch: string;
+  updated_at: string;
+  pushed_at: string | null;
+  owner: {
+    login: string;
+    type: string;
+    avatar_url: string;
+  };
+};
+
+type GitHubCommit = {
+  sha: string;
+  html_url: string;
+  author?: { login: string } | null;
+  commit: {
+    message: string;
+    author: { name: string; date: string } | null;
+    committer: { date: string } | null;
+  };
+};
+
+export type RepositorySummary = {
+  id: number;
+  name: string;
+  fullName: string;
+  url: string;
+  description: string | null;
+  private: boolean;
+  fork: boolean;
+  archived: boolean;
+  language: string | null;
+  defaultBranch: string;
+  updatedAt: Date;
+  pushedAt: Date | null;
+  workspace: string;
+};
+
+export type WorkspaceSummary = {
+  login: string;
+  kind: "personal" | "organization";
+  repositoryCount: number;
+};
+
+export type CommitSummary = {
+  sha: string;
+  shortSha: string;
+  title: string;
+  url: string;
+  repo: string;
+  timestamp: Date;
+};
+
 export type ActionItem = {
   id: string;
   kind: "review" | "blocked_pr" | "failing_ci" | "issue";
@@ -82,9 +144,12 @@ export type ActionItem = {
   isSmallPr: boolean;
 };
 
-type SyncResult = {
+export type SyncResult = {
   username: string;
   actionItems: ActionItem[];
+  repositories: RepositorySummary[];
+  workspaces: WorkspaceSummary[];
+  recentCommits: CommitSummary[];
 };
 
 function getRepoName(repositoryUrl: string) {
@@ -98,16 +163,45 @@ async function githubFetch<T>(accessToken: string, path: string) {
       Authorization: `Bearer ${accessToken}`,
       "X-GitHub-Api-Version": "2022-11-28"
     },
-    next: {
-      revalidate: 0
-    }
+    cache: "no-store"
   });
 
+  if (response.status === 409) {
+    return [] as T;
+  }
+
   if (!response.ok) {
-    throw new Error(`GitHub request failed (${response.status}) for ${path}`);
+    const requestId = response.headers.get("x-github-request-id");
+    throw new Error(`GitHub request failed (${response.status}) for ${path}${requestId ? ` [${requestId}]` : ""}`);
   }
 
   return (await response.json()) as T;
+}
+
+async function fetchAllPages<T>(accessToken: string, path: string, maxPages = 10) {
+  const results: T[] = [];
+
+  for (let page = 1; page <= maxPages; page += 1) {
+    const separator = path.includes("?") ? "&" : "?";
+    const items = await githubFetch<T[]>(accessToken, `${path}${separator}per_page=100&page=${page}`);
+    results.push(...items);
+
+    if (items.length < 100) {
+      break;
+    }
+  }
+
+  return results;
+}
+
+async function mapInBatches<T, R>(items: T[], batchSize: number, mapper: (item: T) => Promise<R>) {
+  const results: R[] = [];
+
+  for (let index = 0; index < items.length; index += batchSize) {
+    results.push(...await Promise.all(items.slice(index, index + batchSize).map(mapper)));
+  }
+
+  return results;
 }
 
 async function getGitHubAccount(userId: string) {
@@ -203,6 +297,45 @@ export async function syncGitHubData(userId: string): Promise<SyncResult | null>
   const githubUser = await githubFetch<GitHubUser>(account.access_token, "/user");
   const username = githubUser.login;
   const sevenDaysAgo = subDays(new Date(), 7).toISOString().slice(0, 10);
+  const thirtyDaysAgo = subDays(new Date(), 30);
+
+  const githubRepositories = await fetchAllPages<GitHubRepository>(
+    account.access_token,
+    "/user/repos?visibility=all&affiliation=owner,collaborator,organization_member&sort=pushed&direction=desc",
+    20
+  );
+
+  const repositories: RepositorySummary[] = githubRepositories.map((repo) => ({
+    id: repo.id,
+    name: repo.name,
+    fullName: repo.full_name,
+    url: repo.html_url,
+    description: repo.description,
+    private: repo.private,
+    fork: repo.fork,
+    archived: repo.archived,
+    language: repo.language,
+    defaultBranch: repo.default_branch,
+    updatedAt: new Date(repo.updated_at),
+    pushedAt: repo.pushed_at ? new Date(repo.pushed_at) : null,
+    workspace: repo.owner.login
+  }));
+
+  const workspaceCounts = new Map<string, number>();
+  const workspaceKinds = new Map<string, WorkspaceSummary["kind"]>();
+  workspaceCounts.set(username, 0);
+  workspaceKinds.set(username, "personal");
+  for (const repo of githubRepositories) {
+    workspaceCounts.set(repo.owner.login, (workspaceCounts.get(repo.owner.login) ?? 0) + 1);
+    workspaceKinds.set(repo.owner.login, repo.owner.type === "Organization" ? "organization" : "personal");
+  }
+  const workspaces: WorkspaceSummary[] = [...workspaceCounts.entries()]
+    .map(([login, repositoryCount]) => ({
+      login,
+      kind: workspaceKinds.get(login) ?? "personal",
+      repositoryCount
+    }))
+    .sort((a, b) => Number(a.kind === "organization") - Number(b.kind === "organization") || a.login.localeCompare(b.login));
 
   const [authoredPrs, reviewRequests, reviewedPrs, assignedIssues] = await Promise.all([
     githubFetch<GitHubSearchResponse<GitHubIssueItem>>(
@@ -264,6 +397,52 @@ export async function syncGitHubData(userId: string): Promise<SyncResult | null>
     repo: string;
     metadata: Prisma.InputJsonValue;
   }> = [];
+
+  const repositoriesWithRecentPushes = githubRepositories.filter((repo) => {
+    return !repo.archived && repo.pushed_at && new Date(repo.pushed_at) >= thirtyDaysAgo;
+  });
+  const commitGroups = await mapInBatches(repositoriesWithRecentPushes, 6, async (repo) => {
+    const repoPath = repo.full_name.split("/").map(encodeURIComponent).join("/");
+    const query = new URLSearchParams({
+      author: username,
+      since: thirtyDaysAgo.toISOString(),
+      per_page: "100"
+    });
+
+    try {
+      const commits = await githubFetch<GitHubCommit[]>(account.access_token!, `/repos/${repoPath}/commits?${query}`);
+      return commits.map((commit): CommitSummary | null => {
+        const date = commit.commit.author?.date ?? commit.commit.committer?.date;
+        if (!date) return null;
+        return {
+          sha: commit.sha,
+          shortSha: commit.sha.slice(0, 7),
+          title: commit.commit.message.split("\n")[0] || "Commit",
+          url: commit.html_url,
+          repo: repo.full_name,
+          timestamp: new Date(date)
+        };
+      }).filter((commit): commit is CommitSummary => Boolean(commit));
+    } catch (error) {
+      console.warn(`Could not read commits for ${repo.full_name}.`, error);
+      return [];
+    }
+  });
+  const recentCommits = commitGroups.flat().sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+
+  for (const commit of recentCommits) {
+    normalizedEvents.push({
+      sourceId: `commit-${commit.sha}`,
+      type: "COMMIT",
+      timestamp: commit.timestamp,
+      repo: commit.repo,
+      metadata: {
+        sha: commit.sha,
+        title: commit.title,
+        url: commit.url
+      } as Prisma.InputJsonValue
+    });
+  }
 
   for (const detail of authoredDetails) {
     const isCiFailing = detail.status.state === "failure";
@@ -434,6 +613,9 @@ export async function syncGitHubData(userId: string): Promise<SyncResult | null>
 
   return {
     username,
-    actionItems: actionItems.sort((a, b) => b.urgencyScore - a.urgencyScore)
+    actionItems: actionItems.sort((a, b) => b.urgencyScore - a.urgencyScore),
+    repositories,
+    workspaces,
+    recentCommits
   };
 }
