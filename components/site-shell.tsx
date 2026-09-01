@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Activity, BarChart3, Bell, ChevronDown, CircleHelp, Command, GitPullRequest, Grid2X2, Menu, Network, PanelLeftClose, PanelLeftOpen, Search, Settings2, Sparkles, Target, X } from "lucide-react";
 
 const primaryNav = [
-  { href: "/", label: "Overview", icon: Grid2X2 },
+  { href: "/dashboard", label: "Overview", icon: Grid2X2 },
   { href: "/timeline", label: "Activity", icon: Activity },
   { href: "/focus", label: "Focus", icon: Target },
   { href: "/dashboard", label: "Pull requests", icon: GitPullRequest, count: "4" }
@@ -91,7 +91,7 @@ export function SiteShell({ children }: PropsWithChildren) {
       {mobileOpen ? <button aria-label="Close navigation" onClick={() => setMobileOpen(false)} className="fixed inset-0 z-30 bg-navy/60 md:hidden" /> : null}
       <aside className={`sidebar-grid fixed inset-y-0 left-0 z-40 flex w-[248px] flex-col border-r border-sidebarBorder bg-navy px-3 py-4 transition-all duration-200 md:sticky md:top-0 md:h-[100dvh] md:translate-x-0 ${collapsed ? "md:w-[76px]" : ""} ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}>
         <div className={`flex items-center px-2 ${collapsed ? "justify-center" : "justify-between"}`}>
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/dashboard" className="flex items-center gap-2.5">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber text-navy shadow-sm"><Command size={17} strokeWidth={2.6} /></span>
             {!collapsed ? <span className="text-[15px] font-extrabold tracking-[-.03em] text-white">dev<span className="text-amber">dash</span></span> : null}
           </Link>

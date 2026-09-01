@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -11,7 +11,9 @@
   --muted: 220 18% 93%;
   --muted-foreground: 220 11% 46%;
   --primary: 222 36% 18%;
+  --primary-foreground: 38 92% 62%;
   --accent: 38 92% 62%;
+  --accent-foreground: 222 36% 13%;
   --teal: 182 52% 47%;
   --destructive: 2 72% 52%;
   --sidebar-foreground: 214 24% 79%;
@@ -38,6 +40,9 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
 ::selection { background: hsl(var(--accent) / .45); color: hsl(var(--foreground)); }
 
 .font-mono { font-family: "DM Mono", ui-monospace, monospace; }
+.font-mono-app { font-family: "DM Mono", ui-monospace, monospace; }
+.display-type { font-family: "Space Grotesk", "Manrope", sans-serif; }
+.text-subtle { color: hsl(var(--muted-foreground)); }
 .devdash-shell { background: radial-gradient(circle at 76% 3%, hsl(38 92% 62% / .08), transparent 23rem), hsl(var(--background)); }
 .sidebar-grid { background-image: linear-gradient(hsl(214 24% 92% / .035) 1px, transparent 1px), linear-gradient(90deg, hsl(214 24% 92% / .035) 1px, transparent 1px); background-size: 22px 22px; }
 .soft-card { box-shadow: 0 10px 30px hsl(222 32% 14% / .05); }
@@ -46,6 +51,26 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
 .rise-in { animation: rise-in .42s cubic-bezier(.22,.8,.24,1) both; }
 .scrollbar-thin::-webkit-scrollbar { width: 5px; height: 5px; }
 .scrollbar-thin::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 999px; }
+
+.public-page {
+  background:
+    radial-gradient(circle at 12% 0%, hsl(182 52% 47% / .13), transparent 28rem),
+    radial-gradient(circle at 90% 7%, hsl(38 92% 62% / .12), transparent 24rem),
+    hsl(220 22% 96%);
+}
+.public-dark-field {
+  background: linear-gradient(125deg, hsl(222 40% 8% / .96), hsl(222 36% 13% / .96)), hsl(222 40% 8%);
+}
+.public-grid {
+  background-image: linear-gradient(hsl(214 24% 92% / .055) 1px, transparent 1px), linear-gradient(90deg, hsl(214 24% 92% / .055) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: linear-gradient(to bottom, black 40%, transparent 100%);
+}
+.instrument-line { background: linear-gradient(90deg, transparent, hsl(var(--accent) / .75), transparent); }
+.signal-card { box-shadow: 0 18px 50px hsl(222 36% 13% / .13), inset 0 1px 0 hsl(0 0% 100% / .08); }
+.public-reveal { animation: public-reveal .72s cubic-bezier(.22,.8,.24,1) both; }
+.public-reveal-delay-2 { animation-delay: .18s; }
+.float-signal { animation: float-signal 7s ease-in-out infinite; }
 
 /* Preserve readable styling on the existing data pages while moving them to the reference palette. */
 .devdash-shell .text-white { color: hsl(var(--foreground)); }
@@ -58,4 +83,6 @@ button, a, input, select { -webkit-tap-highlight-color: transparent; }
 
 @keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes pulse-dot { 0%,100% { opacity: .45; transform: scale(.92); } 50% { opacity: 1; transform: scale(1); } }
+@keyframes public-reveal { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes float-signal { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; } }
