@@ -19,24 +19,24 @@ DevDash is a private, developer-first dashboard built with Next.js, TypeScript, 
 4. Run `npm install`, then `npm run db:push`.
 5. Run `npm run dev` and open `http://localhost:3000`.
 
-## Render deployment
+## Vercel deployment
 
-The included `render.yaml` deploys DevDash as a Node web service with a persistent disk for its SQLite database.
+Local development continues to use SQLite. Vercel uses the separate Postgres schema and migrations under `prisma/vercel` because a deployed serverless application needs durable database storage.
 
-1. Push the desired branch to GitHub. In Render, create a **Blueprint** from that repository and select the branch containing `render.yaml`.
-2. Supply the prompted environment variables:
-   - `NEXTAUTH_URL`: `https://YOUR-SERVICE.onrender.com`
+1. Push the desired branch to GitHub and import `Igadsme/DevDash` in the Vercel dashboard. Select `devdash-local-updates` if that is the branch you want to deploy.
+2. Open the project's **Storage** tab, create a Marketplace Postgres database such as Prisma Postgres or Neon, and connect it to the project. Confirm that it supplies `DATABASE_URL` to Production and Preview.
+3. Add these project environment variables for Production, Preview, and Development:
+   - `NEXTAUTH_SECRET`: generate with `openssl rand -base64 32`
    - `GITHUB_ID`: production GitHub OAuth client ID
    - `GITHUB_SECRET`: production GitHub OAuth client secret
    - `OPENAI_API_KEY`: optional; summaries use a local fallback when omitted
-3. Create a separate production GitHub OAuth App (recommended) with homepage `https://YOUR-SERVICE.onrender.com` and callback `https://YOUR-SERVICE.onrender.com/api/auth/callback/github`.
-4. Deploy and verify `/api/health` reports `status: "ok"` and required integrations are configured.
-5. Open `/signup`, authorize GitHub, and confirm `/repositories` shows the account's accessible repositories and recent authored commits.
+4. Add `NEXTAUTH_URL` for Production using the final canonical domain, for example `https://devdash.example.com`. Preview deployments should normally use a separate GitHub OAuth App and stable preview domain if OAuth must work there.
+5. Create a production GitHub OAuth App with homepage `https://YOUR-DOMAIN` and callback `https://YOUR-DOMAIN/api/auth/callback/github`.
+6. Deploy. `vercel.json` runs `npm run vercel-build`, which generates the Postgres Prisma client, applies committed migrations, and builds Next.js.
+7. Verify `https://YOUR-DOMAIN/api/health`, then test `/signup`, `/signin`, `/repositories`, `/timeline`, and sign-out.
 
-`NEXTAUTH_URL` must exactly match the public HTTPS origin—do not add a trailing slash or callback path. Never commit `.env` or OAuth/API secrets.
+`NEXTAUTH_URL` must exactly match the public HTTPS origin—do not add a trailing slash or callback path. Never commit environment variables, database URLs, OAuth secrets, or API keys.
 
-## Storage and scaling
-
-The Blueprint mounts SQLite at `/var/data/devdash.db`. This is suitable for a single-instance MVP, but a persistent disk prevents multi-instance scaling and zero-downtime deploys. Migrate the Prisma datasource to Render Postgres before scaling beyond one web-service instance.
+When changing Prisma models, update both `prisma/schema.prisma` (local SQLite) and `prisma/vercel/schema.prisma` (Vercel Postgres), then commit a corresponding Postgres migration under `prisma/vercel/migrations`.
 
 GitHub organization repositories can be limited by organization OAuth restrictions or SAML authorization. If a user sees personal repositories but not an organization, they must grant or authorize the OAuth App for that organization in GitHub.
