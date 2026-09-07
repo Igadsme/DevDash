@@ -1,114 +1,88 @@
-import { subDays, subMonths } from "date-fns";
-import type { Event, User } from "@prisma/client";
+import { endOfDay, startOfDay, subDays, subMonths } from "date-fns";
 
 export type TimelineRange = "week" | "month";
+export type ActivityLike = {
+  type: string;
+  occurredAt: Date;
+  repositoryId?: string | null;
+  title?: string;
+};
+export type FocusWindow = { label: string; start: Date; end: Date };
 
-export function getRangeStart(range: TimelineRange) {
-  return range === "month" ? subMonths(new Date(), 1) : subDays(new Date(), 7);
+export function getRangeStart(range: TimelineRange, now = new Date()) {
+  return range === "month" ? subMonths(now, 1) : subDays(now, 7);
+}
+export function parseCustomRange(start: string, end: string) {
+  const from = startOfDay(new Date(`${start}T00:00:00`));
+  const to = endOfDay(new Date(`${end}T00:00:00`));
+  if (
+    !Number.isFinite(from.getTime()) ||
+    !Number.isFinite(to.getTime()) ||
+    from > to
+  )
+    throw new Error("Invalid date range.");
+  return { from, to };
 }
 
-export function summarizeEvents(events: Event[]) {
-  const counts = events.reduce<Record<string, number>>((acc, event) => {
-    acc[event.type] = (acc[event.type] ?? 0) + 1;
-    return acc;
-  }, {});
-
+export function summarizeEvents(events: ActivityLike[]) {
+  const counts = events.reduce<Record<string, number>>(
+    (result, event) => ({
+      ...result,
+      [event.type]: (result[event.type] ?? 0) + 1,
+    }),
+    {},
+  );
   return {
-    built: (counts.PR_OPENED ?? 0) + (counts.PR_MERGED ?? 0) + (counts.COMMIT ?? 0),
     commits: counts.COMMIT ?? 0,
-    reviewed: counts.PR_REVIEWED ?? 0,
-    blocked: counts.CI_FAILED ?? 0,
-    issues: counts.ISSUE_ASSIGNED ?? 0
+    pullRequests:
+      (counts.PULL_REQUEST_OPENED ?? 0) + (counts.PULL_REQUEST_MERGED ?? 0),
+    reviewed: counts.REVIEW_COMPLETED ?? 0,
+    pipelineFailures: events.filter(
+      (event) =>
+        event.type === "PIPELINE_COMPLETED" &&
+        event.title?.toLowerCase().includes("failed"),
+    ).length,
+    tasksCompleted: counts.TASK_COMPLETED ?? 0,
   };
 }
 
-export function buildNarrativeSummary(events: Event[]) {
-  const summary = summarizeEvents(events);
-
-  return `Over the selected period you recorded ${summary.commits} commits and ${summary.built} total shipping events, reviewed ${summary.reviewed} pull requests, and hit ${summary.blocked} CI blockers across ${new Set(events.map((event) => event.repo)).size} repositories.`;
-}
-
-export function calculateInterruptCost(
-  events: Event[],
-  user: Pick<User, "focusMinutes">
+export function calculateEstimatedContextSwitches(
+  events: ActivityLike[],
+  costMinutes: number,
 ) {
-  const orderedEvents = [...events]
-    .filter((event) =>
-      ["COMMIT", "PR_OPENED", "PR_MERGED", "PR_REVIEWED", "CI_FAILED"].includes(event.type)
-    )
-    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-
-  let interruptionCount = 0;
-  const windows: Array<{
-    label: string;
-    repo: string;
-    start: Date;
-    end: Date;
-    interruptionAfter: boolean;
-  }> = [];
-
-  for (let index = 0; index < orderedEvents.length; index += 1) {
-    const current = orderedEvents[index];
-    const next = orderedEvents[index + 1];
-    const currentLabel = getContextLabel(current);
-    const nextLabel = next ? getContextLabel(next) : null;
-    const interruptionAfter = Boolean(nextLabel && nextLabel !== currentLabel);
-
-    if (interruptionAfter) {
-      interruptionCount += 1;
-    }
-
+  const ordered = [...events]
+    .filter((event) => event.repositoryId)
+    .sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+  const windows: FocusWindow[] = [];
+  let switches = 0;
+  for (let index = 0; index < ordered.length - 1; index += 1) {
+    const current = ordered[index];
+    const next = ordered[index + 1];
+    if (next.occurredAt <= current.occurredAt) continue;
     windows.push({
-      label: currentLabel,
-      repo: current.repo,
-      start: current.timestamp,
-      end: next?.timestamp ?? current.timestamp,
-      interruptionAfter
+      label: current.repositoryId!,
+      start: current.occurredAt,
+      end: next.occurredAt,
     });
+    if (current.repositoryId !== next.repositoryId) switches += 1;
   }
-
+  const strongest =
+    windows.sort(
+      (a, b) =>
+        b.end.getTime() -
+        b.start.getTime() -
+        (a.end.getTime() - a.start.getTime()),
+    )[0] ?? null;
   return {
-    interruptionCount,
-    minutesLost: interruptionCount * user.focusMinutes,
-    windows
+    switches,
+    estimatedMinutesLost: switches * costMinutes,
+    strongestWindow: strongest,
+    disclaimer:
+      "Estimated from adjacent repository events; this is not verified working time.",
   };
 }
 
-function getContextLabel(event: Event) {
-  const metadata = event.metadata as Record<string, unknown>;
-  const number = metadata.number;
-  return typeof number === "number" ? `${event.repo}#${number}` : `${event.repo}:${event.type}`;
-}
-
-export function buildFocusInsights(events: Event[], user: Pick<User, "focusMinutes">) {
-  const interruptCost = calculateInterruptCost(events, user);
-  const longWindows = interruptCost.windows.filter((window) => {
-    const duration = window.end.getTime() - window.start.getTime();
-    return duration >= 45 * 60 * 1000;
-  });
-
-  return {
-    ...interruptCost,
-    strongestFocusWindow:
-      longWindows[0]?.label ?? "Not enough contiguous activity yet",
-    insightCards: [
-      {
-        title: "Interruption Cost",
-        body: `Based on ${interruptCost.interruptionCount} detected switches at ${user.focusMinutes} minutes each, you lost ${(
-          interruptCost.minutesLost / 60
-        ).toFixed(1)} hours this week.`
-      },
-      {
-        title: "Most Stable Context",
-        body:
-          longWindows[0]?.repo
-            ? `${longWindows[0].repo} held your longest uninterrupted stretch.`
-            : "More activity is needed before a clear focus window emerges."
-      },
-      {
-        title: "Review Interruptions",
-        body: `${events.filter((event) => event.type === "PR_REVIEWED").length} review events contributed to context switching this period.`
-      }
-    ]
-  };
+export function buildNarrativeSummary(events: ActivityLike[]) {
+  const summary = summarizeEvents(events);
+  return `Recorded ${summary.commits} commits, ${summary.pullRequests} pull-request events, ${summary.reviewed} completed reviews, ${summary.tasksCompleted} completed tasks, and ${summary.pipelineFailures} failed pipelines in this period.`;
 }

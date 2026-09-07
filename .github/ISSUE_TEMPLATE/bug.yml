@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a reproducible DevDash problem
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include the route, steps, expected behavior, and actual behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser, operating system, commit, and deployment type.
+    validations:
+      required: true

@@ -19,7 +19,11 @@ export function CopyButton({ value }: { value: string }) {
         window.setTimeout(() => setStatus("idle"), 1800);
       }}
     >
-      {status === "copied" ? "Copied" : status === "error" ? "Copy failed" : "Copy summary"}
+      {status === "copied"
+        ? "Copied"
+        : status === "error"
+          ? "Copy failed"
+          : "Copy summary"}
     </Button>
   );
 }

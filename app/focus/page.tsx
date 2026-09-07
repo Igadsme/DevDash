@@ -1,67 +1,88 @@
-import { format } from "date-fns";
-
+import { formatDistanceToNow } from "date-fns";
 import { EmptyState, Panel, SectionHeader } from "@/components/cards";
+import { FocusTimer } from "@/components/focus-timer";
 import { SiteShell } from "@/components/site-shell";
 import { getFocusData } from "@/lib/data";
-import { formatHours } from "@/lib/utils";
-
+export const dynamic = "force-dynamic";
 export default async function FocusPage() {
   const data = await getFocusData();
-
+  const active =
+    data.sessions.find(
+      (session) => session.status === "RUNNING" || session.status === "PAUSED",
+    ) ?? null;
   return (
-    <SiteShell user={data.user} workspaceName={data.sync?.username}>
+    <SiteShell user={data.user}>
       <div className="space-y-6">
-        {data.syncError ? <div className="rounded-lg border border-amber/50 bg-amber/10 px-4 py-3 text-[12px] text-inkText">{data.syncError}</div> : null}
-        <Panel>
-          <SectionHeader
-            title="Focus Windows"
-            description="Detected stretches of work on the same repo or pull request context."
-          />
-          {data.focus.windows.length ? <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {data.focus.windows.map((window, index) => (
-              <div key={`${window.label}-${index}`} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                <p className="text-sm font-medium text-white">{window.label}</p>
-                <p className="mt-2 text-xs text-slate-500">{window.repo}</p>
-                <p className="mt-3 text-sm text-slate-300">
-                  {format(window.start, "EEE h:mm a")} to {format(window.end, "EEE h:mm a")}
-                </p>
-                <p className="mt-2 text-xs text-slate-400">
-                  {window.interruptionAfter ? "Interrupted by a context switch" : "Closed without a switch"}
-                </p>
-              </div>
-            ))}
-          </div> : <EmptyState title="No focus windows yet" body="Focus patterns appear after GitHub activity has been synced." link={{ href: "/integrations", label: "Connect GitHub" }} />}
-        </Panel>
-
-        <div className="grid gap-6 lg:grid-cols-[1.1fr_1fr]">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[.18em] text-teal">
+            Deep work
+          </p>
+          <h1 className="mt-2 text-3xl font-extrabold">Focus</h1>
+          <p className="mt-2 text-sm text-muted">
+            A persistent Pomodoro timer plus clearly labeled activity-based
+            estimates.
+          </p>
+        </div>
+        <FocusTimer
+          initialSession={active}
+          repositories={data.repositories}
+          tasks={data.tasks}
+        />
+        <div className="grid gap-6 lg:grid-cols-2">
           <Panel>
             <SectionHeader
-              title="Interruption Patterns"
-              description="A developer-centric estimate of switch cost, not a surveillance metric."
+              title="Estimated context switches"
+              description="Adjacent provider events do not prove working time."
             />
-            <p className="text-4xl font-semibold text-white">{formatHours(data.focus.minutesLost)}</p>
-            <p className="mt-3 text-sm text-slate-400">
-              {data.focus.interruptionCount} switches were detected from recent event sequencing,
-              using {data.user.focusMinutes} minutes per interruption.
+            <p className="text-4xl font-extrabold">{data.estimate.switches}</p>
+            <p className="mt-2 text-sm text-muted">
+              Estimated cost: {data.estimate.estimatedMinutesLost} minutes.{" "}
+              {data.estimate.disclaimer}
             </p>
-            <p className="mt-6 text-sm text-slate-300">
-              Strongest focus window: {data.focus.strongestFocusWindow}
-            </p>
+            {data.estimate.strongestWindow ? (
+              <p className="mt-3 text-sm">
+                Longest observed interval:{" "}
+                {Math.round(
+                  (data.estimate.strongestWindow.end.getTime() -
+                    data.estimate.strongestWindow.start.getTime()) /
+                    60_000,
+                )}{" "}
+                minutes.
+              </p>
+            ) : null}
           </Panel>
-
           <Panel>
             <SectionHeader
-              title="Insight Cards"
-              description="Readable patterns instead of noisy charts."
+              title="Session history"
+              description="Completed, canceled, and paused sessions."
             />
-            <div className="space-y-4">
-              {data.focus.insightCards.map((card) => (
-                <div key={card.title} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <h3 className="text-base font-medium text-white">{card.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-300">{card.body}</p>
-                </div>
-              ))}
-            </div>
+            {data.sessions.length ? (
+              <div className="space-y-2">
+                {data.sessions.slice(0, 10).map((session) => (
+                  <div
+                    key={session.id}
+                    className="rounded-lg border border-border p-3"
+                  >
+                    <p className="text-sm font-bold">
+                      {session.plannedMinutes} minutes ·{" "}
+                      {session.status.toLowerCase()}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Started {formatDistanceToNow(session.startedAt)} ago
+                      {session.repository
+                        ? ` · ${session.repository.fullName}`
+                        : ""}
+                      {session.task ? ` · ${session.task.title}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState
+                title="No focus sessions"
+                body="Start a timer to create your first persisted focus session."
+              />
+            )}
           </Panel>
         </div>
       </div>

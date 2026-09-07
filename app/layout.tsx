@@ -4,11 +4,12 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "DevDash",
-  description: "Developer-first productivity dashboard with privacy-first insights."
+  description:
+    "Developer-first productivity dashboard with privacy-first insights.",
 };
 
 export default function RootLayout({
-  children
+  children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
@@ -18,7 +19,7 @@ export default function RootLayout({
         className="font-sans"
         style={{
           fontFamily: '"Manrope", "Avenir Next", "Segoe UI", sans-serif',
-          fontFeatureSettings: '"ss01" on, "cv01" on'
+          fontFeatureSettings: '"ss01" on, "cv01" on',
         }}
       >
         {children}
