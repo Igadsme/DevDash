@@ -15,7 +15,7 @@ export function summarizeEvents(events: Event[]) {
   }, {});
 
   return {
-    built: (counts.PR_OPENED ?? 0) + (counts.PR_MERGED ?? 0) + (counts.COMMIT ?? 0),
+    built: (counts.PR_OPENED ?? 0) + (counts.COMMIT ?? 0),
     commits: counts.COMMIT ?? 0,
     reviewed: counts.PR_REVIEWED ?? 0,
     blocked: counts.CI_FAILED ?? 0,
@@ -77,7 +77,7 @@ export function calculateInterruptCost(
 }
 
 function getContextLabel(event: Event) {
-  const metadata = event.metadata as Record<string, unknown>;
+  const metadata = event.metadata && typeof event.metadata === "object" ? event.metadata as Record<string, unknown> : {};
   const number = metadata.number;
   return typeof number === "number" ? `${event.repo}#${number}` : `${event.repo}:${event.type}`;
 }
@@ -88,7 +88,7 @@ export function buildFocusInsights(events: Event[], user: Pick<User, "focusMinut
     const duration = window.end.getTime() - window.start.getTime();
     return duration >= 45 * 60 * 1000;
   });
-  const strongestWindow = longWindows.sort(
+  const strongestWindow = [...longWindows].sort(
     (a, b) => (b.end.getTime() - b.start.getTime()) - (a.end.getTime() - a.start.getTime())
   )[0];
 

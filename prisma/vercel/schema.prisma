@@ -20,6 +20,8 @@ model User {
   accounts         Account[]
   sessions         Session[]
   events           Event[]
+  syncState        SyncState?
+  syncSnapshots    SyncSnapshot[]
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
@@ -70,4 +72,27 @@ model Event {
 
   @@unique([userId, sourceId])
   @@index([userId, timestamp])
+}
+
+model SyncState {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  status           String   @default("idle")
+  startedAt        DateTime?
+  completedAt      DateTime?
+  lastSuccessfulAt DateTime?
+  lastError        String?
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SyncSnapshot {
+  id       String   @id @default(cuid())
+  userId   String
+  kind     String
+  data     Json
+  syncedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, kind])
+  @@index([userId, syncedAt])
 }

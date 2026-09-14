@@ -5,6 +5,7 @@ import { GitPullRequest, Search } from "lucide-react";
 import { EmptyState, Panel, SectionHeader } from "@/components/cards";
 import { SiteShell } from "@/components/site-shell";
 import { getPullRequestsData } from "@/lib/data";
+import { collectPullRequestSignals, filterPullRequestSignals } from "@/lib/github";
 
 export default async function PullRequestsPage({
   searchParams
@@ -15,15 +16,7 @@ export default async function PullRequestsPage({
   const query = params?.q?.trim().toLowerCase() ?? "";
   const status = params?.status === "attention" ? "attention" : "all";
   const data = await getPullRequestsData();
-  const items = (data.sync?.actionItems ?? [])
-    .filter((item) => status === "all" || ["review", "blocked_pr", "failing_ci"].includes(item.kind))
-    .filter((item) => !query || `${item.title} ${item.repo}`.toLowerCase().includes(query));
-  const seen = new Set<string>();
-  const pullRequests = items.filter((item) => {
-    if (seen.has(item.url)) return false;
-    seen.add(item.url);
-    return true;
-  });
+  const pullRequests = filterPullRequestSignals(collectPullRequestSignals(data.sync?.actionItems ?? []), { query, status });
 
   return (
     <SiteShell user={data.user} workspaceName={data.sync?.username}>
