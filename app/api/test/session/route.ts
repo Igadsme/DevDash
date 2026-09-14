@@ -10,20 +10,17 @@ export async function POST() {
   ) {
     return new NextResponse(null, { status: 404 });
   }
-  const user = await prisma.user.upsert({
-    where: { email: "e2e@devdash.test" },
-    create: { email: "e2e@devdash.test", name: "E2E Developer" },
-    update: {},
+  // Each Playwright project requests a session concurrently. A shared fixture
+  // user lets one request delete another project's session and makes the suite
+  // nondeterministic, so every request gets an isolated account instead.
+  const testId = randomUUID();
+  const user = await prisma.user.create({
+    data: {
+      email: `e2e+${testId}@devdash.test`,
+      name: "E2E Developer",
+      settings: { create: {} },
+    },
   });
-  await prisma.userSettings.upsert({
-    where: { userId: user.id },
-    create: { userId: user.id },
-    update: {},
-  });
-  await prisma.$transaction([
-    prisma.task.deleteMany({ where: { userId: user.id } }),
-    prisma.session.deleteMany({ where: { userId: user.id } }),
-  ]);
   const sessionToken = randomUUID();
   await prisma.session.create({
     data: {
