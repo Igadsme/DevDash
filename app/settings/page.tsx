@@ -96,6 +96,11 @@ export default async function SettingsPage() {
             Save settings
           </Button>
         </form>
+        <div className="mt-8 border-t border-border pt-6">
+          <SectionHeader title="Your data" description="Export your profile, connection metadata, and synchronized activity. Access tokens are excluded." />
+          <a href="/api/data/export" className="inline-flex rounded-md border border-border px-3 py-2 text-[11px] font-bold text-inkText hover:border-teal hover:text-teal">Download JSON export</a>
+          <p className="mt-3 text-[11px] leading-5 text-muted">Disconnect GitHub or revoke DevDash access from GitHub settings. Synchronized activity remains in DevDash until you delete it or your account.</p>
+        </div>
       </Panel>
     </SiteShell>
   );

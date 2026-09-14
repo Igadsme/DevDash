@@ -160,10 +160,11 @@ async function githubFetch<T>(accessToken: string, path: string) {
   const response = await fetch(`${GITHUB_API}${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${accessToken}`,
+      Authorization: ["Bearer", accessToken].join(" "),
       "X-GitHub-Api-Version": "2022-11-28"
     },
-    cache: "no-store"
+    cache: "no-store",
+    signal: AbortSignal.timeout(12_000)
   });
 
   if (response.status === 409) {
@@ -172,7 +173,7 @@ async function githubFetch<T>(accessToken: string, path: string) {
 
   if (!response.ok) {
     const requestId = response.headers.get("x-github-request-id");
-    throw new Error(`GitHub request failed (${response.status}) for ${path}${requestId ? ` [${requestId}]` : ""}`);
+    throw new Error(`GitHub request failed (${response.status})${requestId ? ` [${requestId}]` : ""}`);
   }
 
   return (await response.json()) as T;
