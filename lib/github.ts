@@ -152,6 +152,25 @@ export type SyncResult = {
   recentCommits: CommitSummary[];
 };
 
+export type PullRequestSignal = Pick<ActionItem, "id" | "kind" | "repo" | "title" | "url" | "updatedAt" | "urgencyScore" | "urgencyReason" | "blockedDevelopers" | "isSmallPr">;
+
+export function collectPullRequestSignals(actionItems: ActionItem[]): PullRequestSignal[] {
+  return actionItems.filter((item) => item.kind === "review" || item.kind === "blocked_pr" || item.kind === "failing_ci");
+}
+
+export function filterPullRequestSignals(
+  signals: PullRequestSignal[],
+  filters: { query?: string; status?: "all" | "attention" }
+) {
+  const query = filters.query?.trim().toLowerCase() ?? "";
+  const status = filters.status === "attention" ? "attention" : "all";
+
+  return signals
+    .filter((item) => status === "all" || item.urgencyScore > 0)
+    .filter((item) => !query || `${item.title} ${item.repo}`.toLowerCase().includes(query))
+    .filter((item, index, items) => items.findIndex((candidate) => candidate.url === item.url) === index);
+}
+
 function getRepoName(repositoryUrl: string) {
   return repositoryUrl.replace(`${GITHUB_API}/repos/`, "");
 }
@@ -284,7 +303,7 @@ async function upsertEvents(userId: string, events: Array<{
   );
 }
 
-export async function syncGitHubData(userId: string): Promise<SyncResult | null> {
+async function performSyncGitHubData(userId: string): Promise<SyncResult | null> {
   const account = await getGitHubAccount(userId);
 
   if (!account?.access_token || !account.providerAccountId) {
@@ -619,4 +638,72 @@ export async function syncGitHubData(userId: string): Promise<SyncResult | null>
     workspaces,
     recentCommits
   };
+}
+
+function serializeSyncResult(result: SyncResult) {
+  return JSON.parse(JSON.stringify(result)) as Prisma.InputJsonValue;
+}
+
+function deserializeSyncResult(data: Prisma.JsonValue): SyncResult {
+  const result = JSON.parse(JSON.stringify(data)) as Omit<SyncResult, "repositories" | "recentCommits"> & {
+    repositories: Array<Omit<RepositorySummary, "updatedAt" | "pushedAt"> & { updatedAt: string; pushedAt: string | null }>;
+    recentCommits: Array<Omit<CommitSummary, "timestamp"> & { timestamp: string }>;
+  };
+  return {
+    ...result,
+    repositories: result.repositories.map((repo) => ({ ...repo, updatedAt: new Date(repo.updatedAt), pushedAt: repo.pushedAt ? new Date(repo.pushedAt) : null })),
+    recentCommits: result.recentCommits.map((commit) => ({ ...commit, timestamp: new Date(commit.timestamp) }))
+  };
+}
+
+export async function getSyncSnapshot(userId: string): Promise<SyncResult | null> {
+  const snapshot = await prisma.syncSnapshot.findUnique({
+    where: { userId_kind: { userId, kind: "github" } }
+  });
+  return snapshot ? deserializeSyncResult(snapshot.data) : null;
+}
+
+export async function getSyncState(userId: string) {
+  return prisma.syncState.findUnique({ where: { userId } });
+}
+
+export async function syncGitHubData(userId: string): Promise<SyncResult | null> {
+  const startedAt = new Date();
+  await prisma.syncState.upsert({
+    where: { userId },
+    update: { status: "syncing", startedAt, lastError: null },
+    create: { userId, status: "syncing", startedAt }
+  });
+
+  try {
+    const result = await performSyncGitHubData(userId);
+    if (!result) {
+      await prisma.syncState.update({
+        where: { userId },
+        data: { status: "disconnected", completedAt: new Date() }
+      });
+      return null;
+    }
+
+    const completedAt = new Date();
+    await prisma.$transaction([
+      prisma.syncSnapshot.upsert({
+        where: { userId_kind: { userId, kind: "github" } },
+        update: { data: serializeSyncResult(result), syncedAt: completedAt },
+        create: { userId, kind: "github", data: serializeSyncResult(result), syncedAt: completedAt }
+      }),
+      prisma.syncState.update({
+        where: { userId },
+        data: { status: "success", completedAt, lastSuccessfulAt: completedAt, lastError: null }
+      })
+    ]);
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown GitHub sync error";
+    await prisma.syncState.update({
+      where: { userId },
+      data: { status: "error", completedAt: new Date(), lastError: message.slice(0, 500) }
+    });
+    throw error;
+  }
 }

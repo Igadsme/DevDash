@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { buildFocusInsights, buildNarrativeSummary, getRangeStart, type TimelineRange } from "@/lib/analytics";
 import { getAuthSession } from "@/lib/auth";
-import { syncGitHubData, type SyncResult } from "@/lib/github";
+import { getSyncSnapshot, getSyncState, syncGitHubData, type SyncResult } from "@/lib/github";
 import { generateWeeklySummary } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { hasAuthSecret, hasGitHubOAuthConfig, hasOpenAIConfig } from "@/lib/config";
@@ -20,12 +20,13 @@ async function syncGitHubSafely(userId: string) {
   }
 
   try {
-    return { sync: await promise, syncError: null as string | null };
+    return { sync: (await promise) ?? await getSyncSnapshot(userId), syncError: null as string | null, syncState: await getSyncState(userId) };
   } catch (error) {
     syncCache.delete(userId);
     console.error("GitHub sync failed.", error);
     return {
-      sync: null,
+      sync: await getSyncSnapshot(userId),
+      syncState: await getSyncState(userId),
       syncError: "GitHub could not be refreshed. Previously synced data is still available."
     };
   }
