@@ -1,9 +1,10 @@
 import { subDays, subMonths } from "date-fns";
 import type { Event, User } from "@prisma/client";
 
-export type TimelineRange = "week" | "month";
+export type TimelineRange = "week" | "month" | "quarter";
 
 export function getRangeStart(range: TimelineRange) {
+  if (range === "quarter") return subDays(new Date(), 90);
   return range === "month" ? subMonths(new Date(), 1) : subDays(new Date(), 7);
 }
 
@@ -25,7 +26,8 @@ export function summarizeEvents(events: Event[]) {
 export function buildNarrativeSummary(events: Event[]) {
   const summary = summarizeEvents(events);
 
-  return `Over the selected period you recorded ${summary.commits} commits and ${summary.built} total shipping events, reviewed ${summary.reviewed} pull requests, and hit ${summary.blocked} CI blockers across ${new Set(events.map((event) => event.repo)).size} repositories.`;
+  const pullRequests = events.filter((event) => event.type === "PR_OPENED" || event.type === "PR_MERGED").length;
+  return `Over the selected period you recorded ${summary.commits} commits, opened or merged ${pullRequests} pull requests, completed ${summary.reviewed} reviews, and hit ${summary.blocked} CI blockers across ${new Set(events.map((event) => event.repo)).size} repositories.`;
 }
 
 export function calculateInterruptCost(
@@ -86,11 +88,14 @@ export function buildFocusInsights(events: Event[], user: Pick<User, "focusMinut
     const duration = window.end.getTime() - window.start.getTime();
     return duration >= 45 * 60 * 1000;
   });
+  const strongestWindow = longWindows.sort(
+    (a, b) => (b.end.getTime() - b.start.getTime()) - (a.end.getTime() - a.start.getTime())
+  )[0];
 
   return {
     ...interruptCost,
     strongestFocusWindow:
-      longWindows[0]?.label ?? "Not enough contiguous activity yet",
+      strongestWindow?.label ?? "Not enough contiguous activity yet",
     insightCards: [
       {
         title: "Interruption Cost",
@@ -101,8 +106,8 @@ export function buildFocusInsights(events: Event[], user: Pick<User, "focusMinut
       {
         title: "Most Stable Context",
         body:
-          longWindows[0]?.repo
-            ? `${longWindows[0].repo} held your longest uninterrupted stretch.`
+          strongestWindow?.repo
+            ? `${strongestWindow.repo} held your longest observed activity stretch. This is an estimate, not confirmed focus time.`
             : "More activity is needed before a clear focus window emerges."
       },
       {

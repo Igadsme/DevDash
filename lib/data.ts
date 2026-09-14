@@ -136,22 +136,13 @@ export async function getRepositoriesData() {
 }
 
 export async function getIntegrationData() {
-  const session = await getAuthSession();
-  const user = session?.user?.id
-    ? await prisma.user.findUnique({
-        where: {
-          id: session.user.id
-        }
-      })
-    : null;
-  const githubAccount = user
-    ? await prisma.account.findFirst({
-        where: {
-          userId: user.id,
-          provider: "github"
-        }
-      })
-    : null;
+  const user = await requireUser();
+  const githubAccount = await prisma.account.findFirst({
+    where: {
+      userId: user.id,
+      provider: "github"
+    }
+  });
 
   return {
     user,
@@ -159,5 +150,49 @@ export async function getIntegrationData() {
     githubConfigured: hasGitHubOAuthConfig(),
     openAiConfigured: hasOpenAIConfig(),
     authConfigured: hasAuthSecret()
+  };
+}
+
+export async function getPullRequestsData() {
+  const user = await requireUser();
+  const { sync, syncError } = await syncGitHubSafely(user.id);
+  const events = await prisma.event.findMany({
+    where: {
+      userId: user.id,
+      timestamp: { gte: getRangeStart("month") },
+      type: { in: ["PR_OPENED", "PR_MERGED", "PR_REVIEWED", "CI_FAILED"] }
+    },
+    orderBy: { timestamp: "desc" }
+  });
+
+  return { user, sync, syncError, events };
+}
+
+export async function getAnalyticsData(range: TimelineRange) {
+  const user = await requireUser();
+  const { sync, syncError } = await syncGitHubSafely(user.id);
+  const events = await prisma.event.findMany({
+    where: { userId: user.id, timestamp: { gte: getRangeStart(range) } },
+    orderBy: { timestamp: "asc" }
+  });
+
+  return { user, sync, syncError, events, range, summary: buildNarrativeSummary(events) };
+}
+
+export async function getInsightsData() {
+  const user = await requireUser();
+  const { sync, syncError } = await syncGitHubSafely(user.id);
+  const events = await prisma.event.findMany({
+    where: { userId: user.id, timestamp: { gte: getRangeStart("week") } },
+    orderBy: { timestamp: "desc" }
+  });
+
+  return {
+    user,
+    sync,
+    syncError,
+    events,
+    summary: await generateWeeklySummary(events, user),
+    focus: buildFocusInsights(events, user)
   };
 }

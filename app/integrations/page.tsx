@@ -40,7 +40,8 @@ export default async function IntegrationsPage() {
           <div className="space-y-4 text-sm leading-7 text-slate-300">
             <p>Everything is private by default. No org-wide dashboards, no surveillance views, and no automatic sharing.</p>
             <p>No client-side GitHub calls are made. Access tokens are only used on the server to fetch the activity needed for your dashboard.</p>
-            <p>No time tracking, notifications, webhooks, or background monitoring are enabled in this MVP.</p>
+            <p>Only the GitHub <span className="font-mono">read:user user:email repo</span> OAuth scope is requested. Access tokens remain server-side and are never included in logs or browser requests.</p>
+            <p>AI summaries are optional. When enabled, normalized activity may be sent to OpenAI for summarization; when disabled or unavailable, DevDash uses a deterministic local summary.</p>
           </div>
           <div className="mt-5 grid gap-2 text-[11px] sm:grid-cols-3">
             <span className={`rounded-md border p-2 ${data.authConfigured ? "border-teal/40 bg-teal/10" : "border-red-400/40 bg-red-400/10"}`}>Session security: {data.authConfigured ? "ready" : "missing"}</span>

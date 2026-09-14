@@ -10,12 +10,12 @@ const primaryNav = [
   { href: "/dashboard", label: "Overview", icon: Grid2X2 },
   { href: "/timeline", label: "Activity", icon: Activity },
   { href: "/focus", label: "Focus", icon: Target },
-  { href: "/dashboard", label: "Pull requests", icon: GitPullRequest }
+  { href: "/pull-requests", label: "Pull requests", icon: GitPullRequest }
 ];
 const workspaceNav = [
   { href: "/repositories", label: "Repositories", icon: FolderGit2 },
-  { href: "/dashboard", label: "Analytics", icon: BarChart3 },
-  { href: "/dashboard", label: "AI insights", icon: Sparkles }
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/insights", label: "AI insights", icon: Sparkles }
 ];
 const allNav = [...primaryNav, ...workspaceNav, { href: "/integrations", label: "Integrations", icon: Network }, { href: "/settings", label: "Settings", icon: Settings2 }];
 
@@ -33,7 +33,6 @@ export function SiteShell({ children, user, workspaceName }: PropsWithChildren<{
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(2);
   const [helpOpen, setHelpOpen] = useState(false);
   const workspace = workspaceName || user?.name || "GitHub workspace";
   const displayName = user?.name || user?.email || "DevDash user";
@@ -76,7 +75,7 @@ export function SiteShell({ children, user, workspaceName }: PropsWithChildren<{
   };
 
   const navItem = (item: (typeof primaryNav)[number]) => {
-    const active = pathname === item.href;
+    const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
     const Icon = item.icon;
     return (
       <Link key={`${item.label}-${item.href}`} href={item.href} onClick={() => setMobileOpen(false)} className={`group flex items-center gap-3 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors ${active ? "bg-sidebarActive text-white" : "text-sidebarText hover:bg-sidebarActive/70 hover:text-white"} ${collapsed ? "justify-center px-2" : ""}`}>
@@ -127,7 +126,7 @@ export function SiteShell({ children, user, workspaceName }: PropsWithChildren<{
       <div className="min-w-0 flex-1">
         <header className="sticky top-0 z-20 flex h-[62px] items-center justify-between border-b border-border bg-canvas/90 px-4 backdrop-blur-md md:px-8">
           <div className="flex items-center gap-3"><button aria-label="Open navigation" onClick={() => setMobileOpen(true)} className="rounded-md p-2 text-muted hover:bg-mutedBg md:hidden"><Menu size={18} /></button><button aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} onClick={() => setCollapsed((value) => !value)} className="hidden rounded-md p-2 text-muted hover:bg-mutedBg md:block">{collapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}</button><div className="hidden h-5 w-px bg-border md:block" /><button onClick={() => setSearchOpen(true)} className="flex items-center gap-2 text-[12px] font-semibold text-muted hover:text-inkText"><Search size={16} /><span className="hidden sm:inline">Search workspace</span><kbd className="ml-1 rounded border border-border bg-white px-1.5 py-0.5 font-mono text-[10px] text-muted">⌘ K</kbd></button></div>
-          <div className="relative flex items-center gap-1.5"><button aria-label="Toggle theme" onClick={toggleTheme} className="rounded-md p-2 font-mono text-[11px] text-muted hover:bg-mutedBg">{dark ? "LT" : "DK"}</button><button aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)} className="relative rounded-md p-2 text-muted hover:bg-mutedBg"><Bell size={17} />{unreadNotifications ? <span className="pulse-dot absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-amber" /> : null}</button>{notificationsOpen ? <div className="absolute right-0 top-10 z-50 w-[300px] rounded-lg border border-border bg-card p-3 shadow-xl"><div className="flex items-center justify-between"><h2 className="text-[12px] font-bold">Notifications</h2><button onClick={() => setUnreadNotifications(0)} className="text-[10px] font-bold text-teal">Mark all read</button></div><div className="mt-2 space-y-1"><div className="rounded-md bg-mutedBg p-3 text-[11px]"><p className="font-semibold">GitHub connection needed</p><p className="mt-1 text-muted">Connect your account to load live workspace data.</p></div><div className="rounded-md bg-mutedBg p-3 text-[11px]"><p className="font-semibold">Dashboard ready</p><p className="mt-1 text-muted">The refreshed DevDash interface is available.</p></div></div></div> : null}<div className="ml-1 hidden h-6 w-px bg-border sm:block" /><span className="ml-2 hidden font-mono text-[10px] font-medium uppercase tracking-[.12em] text-muted sm:inline">Sprint 24 · Thu 14 Mar</span></div>
+          <div className="relative flex items-center gap-1.5"><button aria-label="Toggle theme" onClick={toggleTheme} className="rounded-md p-2 font-mono text-[11px] text-muted hover:bg-mutedBg">{dark ? "LT" : "DK"}</button><button aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)} className="rounded-md p-2 text-muted hover:bg-mutedBg"><Bell size={17} /></button>{notificationsOpen ? <div className="absolute right-0 top-10 z-50 w-[300px] rounded-lg border border-border bg-card p-3 shadow-xl"><h2 className="text-[12px] font-bold">Notifications</h2><div className="mt-2 rounded-md bg-mutedBg p-3 text-[11px]"><p className="font-semibold">You&apos;re all caught up</p><p className="mt-1 text-muted">Live GitHub conditions will appear here after your next sync.</p></div></div> : null}<div className="ml-1 hidden h-6 w-px bg-border sm:block" /><span className="ml-2 hidden font-mono text-[10px] font-medium uppercase tracking-[.12em] text-muted sm:inline">{new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" }).format(new Date())}</span></div>
         </header>
         <main className="mx-auto w-full max-w-[1480px] px-4 py-6 md:px-8 md:py-8">{children}</main>
       </div>
